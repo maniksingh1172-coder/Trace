@@ -778,7 +778,7 @@ function App() {
     // Sanitize: Ignore if it looks like a JSON object, contains invalid chars, or is literally "null"
     if (boardId && boardId !== 'null' && /^[a-zA-Z0-9_-]+$/.test(boardId)) {
       setWorkspaceId(boardId);
-      fetch(`http://localhost:3001/api/load/${boardId}`)
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/load/${boardId}`)
         .then(res => res.json())
         .then(data => {
           if (data.pages) {
@@ -824,7 +824,7 @@ function App() {
         currentPageIndex: store.currentPageIndex,
         isPdfMode: store.isPdfMode
       };
-      const res = await fetch('http://localhost:3001/api/save', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
