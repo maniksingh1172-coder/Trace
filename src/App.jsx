@@ -644,6 +644,7 @@ function App() {
   const [recordingChunks, setRecordingChunks] = useState([]);
   const [recorder, setRecorder] = useState(null);
   const [activeAudioStreams, setActiveAudioStreams] = useState([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const shiftUiLeftEdge = (store.isPdfMode && showPdfSidebar) ? '200px' : '24px';
   const currentPage = store.getCurrentPage();
   const elements = currentPage.elements;
@@ -1292,6 +1293,26 @@ function App() {
     const secs = seconds % 60;
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
+
+  const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        toast.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleFullScreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+  }, []);
 
   const handleAudioUpload = (e) => {
     const file = e.target.files[0];
@@ -2879,6 +2900,9 @@ function App() {
         <div style={{ width: '1px', height: '24px', background: '#cbd5e1', margin: '0 4px' }} />
         <button className="tool-btn" onClick={handleRelocate} title="Relocate to Center (100%)">
           <LocateFixed size={20} />
+        </button>
+        <button className="tool-btn" onClick={toggleFullScreen} title={isFullscreen ? "Exit Full Screen" : "Enter Full Screen"}>
+          {isFullscreen ? <Minimize size={20} /> : <Maximize size={20} />}
         </button>
         <button 
           className="tool-btn" 
