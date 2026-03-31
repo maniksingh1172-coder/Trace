@@ -445,3 +445,41 @@ input[type=range]::-webkit-slider-runnable-track {
 .text-overlay-input::selection {
   background: rgba(99, 102, 241, 0.3);
 }
+
+/* Recording UI Styles */
+.recording-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.recording-pulse {
+  animation: pulse-red 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  border-radius: 50%;
+}
+
+@keyframes pulse-red {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.recorder-timer {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-weight: 600;
+  font-size: 14px;
+  color: #ef4444;
+}
+
+.tool-btn.recording {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.tool-btn.recording:hover {
+  background: rgba(239, 68, 68, 0.2);
+}

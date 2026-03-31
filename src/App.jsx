@@ -639,6 +639,11 @@ function App() {
   const [showVideoURLModal, setShowVideoURLModal] = useState(false);
   const [videoElements, setVideoElements] = useState({}); // { elementId: videoElement }
   const [editingText, setEditingText] = useState(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [recordingChunks, setRecordingChunks] = useState([]);
+  const [recorder, setRecorder] = useState(null);
+  const [activeAudioStreams, setActiveAudioStreams] = useState([]);
   const shiftUiLeftEdge = (store.isPdfMode && showPdfSidebar) ? '200px' : '24px';
   const currentPage = store.getCurrentPage();
   const elements = currentPage.elements;
@@ -1181,6 +1186,111 @@ function App() {
       setShowVideoURLModal(false);
       setVideoURLInput('');
     }
+  };
+
+  // Recording Logic
+  const startRecording = async () => {
+    try {
+      // 1. Capture System Audio + Video (for audio source)
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      });
+
+      // 2. Capture Microphone
+      const micStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: true 
+      });
+
+      // 3. Audio Mixing
+      const audioCtx = new AudioContext();
+      const dest = audioCtx.createMediaStreamDestination();
+      
+      const micSource = audioCtx.createMediaStreamSource(micStream);
+      const systemSource = audioCtx.createMediaStreamSource(displayStream);
+      
+      // Check if displayStream actually has audio
+      if (displayStream.getAudioTracks().length > 0) {
+        systemSource.connect(dest);
+      } else {
+        toast.error("System audio not captured. Make sure to check 'Share Audio'.");
+      }
+      micSource.connect(dest);
+
+      // 4. Capture Video from displayStream (captures calc iframes, menus, etc.)
+      const videoTrack = displayStream.getVideoTracks()[0];
+
+      // 5. Combine Video + Mixed Audio
+      const combinedStream = new MediaStream([
+        videoTrack,
+        ...dest.stream.getAudioTracks()
+      ]);
+
+      const mediaRecorder = new MediaRecorder(combinedStream, {
+        mimeType: 'video/webm;codecs=vp9,opus'
+      });
+
+      const chunks = [];
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Trace-Recording-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.webm`;
+        a.click();
+        
+        // Cleanup
+        [displayStream, micStream, canvasStream, combinedStream].forEach(s => 
+          s.getTracks().forEach(t => t.stop())
+        );
+        audioCtx.close();
+        setIsRecording(false);
+        setRecordingTime(0);
+        toast.success("Recording saved to your computer!");
+      };
+
+      mediaRecorder.start(1000);
+      setRecorder(mediaRecorder);
+      setIsRecording(true);
+      setRecordingTime(0);
+      toast.success("Recording started!");
+      
+      // Save streams for cleanup
+      setActiveAudioStreams([displayStream, micStream]);
+
+    } catch (err) {
+      console.error("Recording failed:", err);
+      toast.error("Recording failed: " + err.message);
+    }
+  };
+
+  const stopRecording = () => {
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+      activeAudioStreams.forEach(s => s.getTracks().forEach(t => t.stop()));
+      setActiveAudioStreams([]);
+    }
+  };
+
+  // Recording Timer Effect
+  useEffect(() => {
+    let interval;
+    if (isRecording) {
+      interval = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isRecording]);
+
+  const formatRecordingTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
   const handleAudioUpload = (e) => {
@@ -2709,6 +2819,32 @@ function App() {
           style={{ width: '40px', height: '40px' }}
         >
           <Save size={20} color={isSaving ? "#94a3b8" : (store.isDarkMode ? "#f1f5f9" : "#1e293b")} />
+        </button>
+
+        <div style={{ width: '1px', height: '24px', background: store.isDarkMode ? '#334155' : '#cbd5e1', alignSelf: 'center' }} />
+
+        <button 
+          className={`tool-btn ${isRecording ? 'recording' : ''}`} 
+          onClick={isRecording ? stopRecording : startRecording}
+          title={isRecording ? "Stop Recording" : "Start Screen Recording"}
+          style={{ 
+            width: isRecording ? 'auto' : '40px', 
+            height: '40px', 
+            padding: isRecording ? '0 12px' : '0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {isRecording ? (
+            <>
+              <div className="recording-dot recording-pulse" />
+              <span className="recorder-timer">{formatRecordingTime(recordingTime)}</span>
+              <div style={{ width: '8px', height: '8px', background: '#ef4444', borderRadius: '1px' }} />
+            </>
+          ) : (
+            <Video size={20} color={store.isDarkMode ? "#f1f5f9" : "#1e293b"} />
+          )}
         </button>
         <button 
           className="tool-btn" 
