@@ -645,6 +645,10 @@ function App() {
   const [recorder, setRecorder] = useState(null);
   const [activeAudioStreams, setActiveAudioStreams] = useState([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [windowDimensions, setWindowDimensions] = useState({ 
+    width: window.innerWidth, 
+    height: window.innerHeight 
+  });
   const shiftUiLeftEdge = (store.isPdfMode && showPdfSidebar) ? '200px' : '24px';
   const currentPage = store.getCurrentPage();
   const elements = currentPage.elements;
@@ -1294,25 +1298,52 @@ function App() {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        toast.error(`Error attempting to enable full-screen mode: ${err.message}`);
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowDimensions({
+        width: window.innerWidth,
+        height: window.innerHeight
       });
+      setPosition(p => ({...p})); 
+    };
+
+    const handleFullScreenChange = () => {
+      const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      setIsFullscreen(isFS);
+      handleResize(); // Force dimensions sync on toggle
+    };
+
+    window.addEventListener('resize', handleResize);
+    document.addEventListener('fullscreenchange', handleFullScreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullScreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullScreenChange);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullScreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullScreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullScreenChange);
+    };
+  }, []);
+
+  const toggleFullScreen = () => {
+    const doc = document.documentElement;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.mozFullScreenElement && !document.msFullscreenElement) {
+      const requestFS = doc.requestFullscreen || doc.webkitRequestFullscreen || doc.mozRequestFullScreen || doc.msRequestFullscreen;
+      if (requestFS) {
+        requestFS.call(doc).catch(err => {
+          toast.error(`Full-screen blocked: ${err.message}`);
+        });
+      }
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
+      const exitFS = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+      if (exitFS) {
+        exitFS.call(document);
       }
     }
   };
-
-  useEffect(() => {
-    const handleFullScreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement);
-    };
-    document.addEventListener('fullscreenchange', handleFullScreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
-  }, []);
 
   const handleAudioUpload = (e) => {
     const file = e.target.files[0];
@@ -2420,8 +2451,8 @@ function App() {
       )}
 
       <Stage
-        width={window.innerWidth}
-        height={window.innerHeight}
+        width={windowDimensions.width}
+        height={windowDimensions.height}
         ref={stageRef}
         scaleX={scale}
         scaleY={scale}
